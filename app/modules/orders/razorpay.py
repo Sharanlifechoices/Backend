@@ -8,7 +8,7 @@ import hmac
 import httpx
 
 from app.core.config import settings
-from app.core.http_logging import hooks_for
+from app.core.http_logging import async_hooks_for
 
 ORDERS_URL = "https://api.razorpay.com/v1/orders"
 
@@ -42,7 +42,7 @@ class RazorpayClient:
             raise RazorpayError("Razorpay is not configured")
         payload = {"amount": amount_minor, "currency": currency, "receipt": receipt, "notes": notes}
         try:
-            async with httpx.AsyncClient(timeout=20.0, event_hooks=hooks_for("razorpay")) as client:
+            async with httpx.AsyncClient(timeout=20.0, event_hooks=async_hooks_for("razorpay")) as client:
                 resp = await client.post(
                     ORDERS_URL, json=payload, auth=(settings.razorpay_key_id, settings.razorpay_key_secret)
                 )

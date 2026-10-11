@@ -123,3 +123,27 @@ def test_health_endpoint():
     from app.main import app
 
     assert TestClient(app).get("/health").json()["status"] == "ok"
+
+
+# ---- outgoing hooks on an AsyncClient (Resend and Razorpay use one) -------------------
+def test_async_client_hooks_log_and_redact_without_crashing(caplog):
+    import asyncio
+    import logging
+
+    import httpx
+
+    from app.core.http_logging import async_hooks_for
+
+    def handler(request):
+        return httpx.Response(200, json={"id": "order_1", "api_key": "SECRET-RESPONSE"})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler), event_hooks=async_hooks_for("razorpay")) as client:
+            return await client.post("https://api.razorpay.com/v1/orders", json={"amount": 100, "token": "SECRET-REQUEST"},
+                                     headers={"Authorization": "Basic abc"})
+
+    with caplog.at_level(logging.INFO, logger="outgoing"):
+        resp = asyncio.run(run())
+    assert resp.json()["id"] == "order_1"  # body still readable after the hook consumed it
+    text = " ".join(str(getattr(r, "data", "")) + r.getMessage() for r in caplog.records)
+    assert "razorpay" in text and "SECRET-REQUEST" not in text and "SECRET-RESPONSE" not in text and "Basic abc" not in text

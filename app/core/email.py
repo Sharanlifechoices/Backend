@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.core.config import settings
-from app.core.http_logging import hooks_for
+from app.core.http_logging import async_hooks_for
 from app.core.logging_setup import log_event
 
 _log = logging.getLogger("email")
@@ -55,7 +55,7 @@ async def send_email(
     if headers:
         payload["headers"] = headers
 
-    async with httpx.AsyncClient(timeout=20.0, event_hooks=hooks_for("resend")) as client:
+    async with httpx.AsyncClient(timeout=20.0, event_hooks=async_hooks_for("resend")) as client:
         resp = await client.post(
             RESEND_URL, json=payload, headers={"Authorization": f"Bearer {settings.resend_api_key}"}
         )
