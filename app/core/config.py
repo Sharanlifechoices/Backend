@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Admin (shared secret sent as X-Admin-Secret) and scheduled-job secret
     admin_secret: str = Field(default="", validation_alias="ADMIN_SECRET")
     jobs_secret: str = Field(default="", validation_alias="JOBS_SECRET")
+    # Daily jobs stop starting new sends after this many seconds (cron callers time out around 30s)
+    jobs_budget_seconds: float = 25.0
+    # Pause between real sends to stay under the Resend rate limit (not applied in mock mode)
+    email_send_interval_seconds: float = 0.6
 
     # Razorpay (server-side orders + signature verification)
     razorpay_key_id: str = Field(default="", validation_alias="RAZORPAY_KEY_ID")
