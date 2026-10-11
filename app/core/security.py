@@ -17,6 +17,7 @@ _jwks_client: PyJWKClient | None = None
 
 _ALGORITHMS_ASYMMETRIC = ["ES256", "RS256"]
 _ALGORITHMS_LEGACY = ["HS256"]
+_CLOCK_LEEWAY_SECONDS = 30
 
 
 def _get_jwks_client() -> PyJWKClient:
@@ -28,7 +29,9 @@ def _get_jwks_client() -> PyJWKClient:
 
 def decode_token(token: str) -> dict[str, Any]:
     """Verify a Supabase JWT and return its claims. Raises InvalidTokenError on failure."""
-    common = dict(audience="authenticated", issuer=settings.jwt_issuer, options={"require": ["exp", "sub", "aud"]})
+    # leeway: a token minted by Supabase can carry an iat a fraction of a second ahead of this server's clock,
+    # which would otherwise reject a brand-new token (login followed by an immediate request).
+    common = dict(audience="authenticated", issuer=settings.jwt_issuer, options={"require": ["exp", "sub", "aud"]}, leeway=_CLOCK_LEEWAY_SECONDS)
     try:
         signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
         return jwt.decode(token, signing_key.key, algorithms=_ALGORITHMS_ASYMMETRIC, **common)

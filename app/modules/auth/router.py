@@ -196,6 +196,7 @@ def _public_profile(profile: dict | None) -> dict:
         "full_name": profile.get("full_name", ""),
         "phone": profile.get("phone", ""),
         "dob": profile.get("dob"),
+        "is_unsubscribed": bool(profile.get("is_unsubscribed", False)),
     }
 
 

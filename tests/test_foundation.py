@@ -147,3 +147,22 @@ def test_async_client_hooks_log_and_redact_without_crashing(caplog):
     assert resp.json()["id"] == "order_1"  # body still readable after the hook consumed it
     text = " ".join(str(getattr(r, "data", "")) + r.getMessage() for r in caplog.records)
     assert "razorpay" in text and "SECRET-REQUEST" not in text and "SECRET-RESPONSE" not in text and "Basic abc" not in text
+
+
+def test_token_issued_slightly_in_the_future_is_accepted(monkeypatch):
+    """Regression: a freshly refreshed Supabase token had iat 0.4s ahead of the local clock and was rejected."""
+    import time
+
+    import jwt
+
+    from app.core.config import settings
+    from app.core.security import decode_token
+
+    monkeypatch.setattr(settings, "supabase_jwt_secret", "legacy-secret-for-test-of-32-bytes-min!")
+    now = int(time.time())
+    claims = {"sub": "u1", "aud": "authenticated", "iss": settings.jwt_issuer, "exp": now + 3600, "iat": now + 5}
+    token = jwt.encode(claims, settings.supabase_jwt_secret, algorithm="HS256")
+    assert decode_token(token)["sub"] == "u1"
+    claims["iat"] = now + 600  # a genuinely wrong clock is still rejected
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_token(jwt.encode(claims, settings.supabase_jwt_secret, algorithm="HS256"))
