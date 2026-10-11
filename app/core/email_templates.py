@@ -68,22 +68,31 @@ def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str,
     return "Your My LifeChoices purchase", _layout("Purchase confirmed", body)
 
 
-def followup_email(name: str, item_titles: list[str]) -> tuple[str, str]:
+def _unsub_footer(url: str) -> str:
+    if not url:
+        return ""
+    return (
+        "You are receiving this because you shopped with us. "
+        f'<a style="color:{_GOLD}" href="{escape(url, quote=True)}">Unsubscribe</a>'
+    )
+
+
+def followup_email(name: str, item_titles: list[str], unsubscribe_url: str = "") -> tuple[str, str]:
     titles = ", ".join(escape(t) for t in item_titles)
     body = (
         f"<p>Hi {escape(name)},</p><p>It has been a week since you picked up {titles}. "
         "We hope it is already bringing clarity. A one-to-one session can take it deeper.</p>"
         + _button("Book a session", settings.frontend_url)
     )
-    return "How is your journey going?", _layout("A week on", body)
+    return "How is your journey going?", _layout("A week on", body, _unsub_footer(unsubscribe_url))
 
 
-def birthday_email(name: str) -> tuple[str, str]:
+def birthday_email(name: str, unsubscribe_url: str = "") -> tuple[str, str]:
     body = (
         f"<p>Happy Birthday, {escape(name)}! 🎂</p><p>May the year ahead bring you peace, purpose and joy.</p>"
         + _button("Celebrate with a session", settings.frontend_url)
     )
-    return f"Happy Birthday, {name}!", _layout("Happy Birthday", body)
+    return f"Happy Birthday, {name}!", _layout("Happy Birthday", body, _unsub_footer(unsubscribe_url))
 
 
 def newsletter_email(subject: str, body_html: str, unsubscribe_url: str) -> tuple[str, str]:

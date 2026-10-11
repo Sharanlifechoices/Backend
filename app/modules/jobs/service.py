@@ -19,7 +19,9 @@ from app.core.email import send_email
 from app.core.email_templates import birthday_email, followup_email
 from app.core.logging_setup import log_event
 from app.core.scheduling import today_sgt
+from app.core.unsubscribe import unsubscribe_headers, unsubscribe_url
 from app.modules.jobs.repo import EmailLogRepo, JobsRepo
+from app.modules.unsubscribe.repo import SuppressionRepo
 
 _log = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ def new_stats() -> dict:
 
 async def send_once(
     log: EmailLogRepo, key: str, kind: str, to: str, build: Callable[[], tuple[str, str]], stats: dict,
+    headers: dict[str, str] | None = None,
 ) -> None:
     try:
         if not await asyncio.to_thread(log.claim, key, kind, to):
@@ -41,7 +44,7 @@ async def send_once(
             return
         subject, html = build()
         try:
-            result = await send_email(to=to, subject=subject, html=html, kind=kind)
+            result = await send_email(to=to, subject=subject, html=html, kind=kind, headers=headers)
         except Exception as exc:
             await asyncio.to_thread(log.mark_failed, key, f"{type(exc).__name__}: {exc}")
             raise
@@ -75,24 +78,26 @@ async def run_birthdays(repo: JobsRepo, log: EmailLogRepo, today: date, deadline
                 return stats
             name = profile.get("full_name") or "friend"
             await send_once(log, f"birthday:{profile['user_id']}:{today.year}", "birthday", profile["email"],
-                            lambda n=name: birthday_email(n), stats)
+                            lambda n=name, e=profile["email"]: birthday_email(n, unsubscribe_url(e)), stats,
+                            headers=unsubscribe_headers(profile["email"]))
     return stats
 
 
-async def run_followups(repo: JobsRepo, log: EmailLogRepo, now: datetime, deadline: float) -> dict:
+async def run_followups(repo: JobsRepo, log: EmailLogRepo, suppressions: SuppressionRepo, now: datetime, deadline: float) -> dict:
     stats = new_stats()
     orders = await asyncio.to_thread(repo.paid_orders_between, now - FOLLOWUP_AFTER - FOLLOWUP_CATCHUP, now - FOLLOWUP_AFTER)
-    unsubscribed = await asyncio.to_thread(repo.unsubscribed_among, [o["user_id"] for o in orders if o.get("user_id")])
+    suppressed = await asyncio.to_thread(suppressions.suppressed_among, [o["email"] for o in orders])
     for order in orders:
         if time.monotonic() > deadline:
             stats["stopped_early"] = True
             return stats
-        if order.get("user_id") in unsubscribed:
+        if order["email"].lower() in suppressed:
             stats["skipped"] += 1
             continue
         titles = [i["title"] for i in order.get("order_items", [])]
         await send_once(log, f"followup:{order['id']}", "followup", order["email"],
-                        lambda o=order, t=titles: followup_email(o.get("customer_name") or "there", t), stats)
+                        lambda o=order, t=titles: followup_email(o.get("customer_name") or "there", t, unsubscribe_url(o["email"])), stats,
+                        headers=unsubscribe_headers(order["email"]))
     return stats
 
 
@@ -109,14 +114,16 @@ async def run_cleanup(repo: JobsRepo, now: datetime) -> dict:
     return {"deleted": deleted, "failed": failed}
 
 
-async def run_daily(repo: JobsRepo, log: EmailLogRepo, now: datetime | None = None, budget_seconds: float | None = None) -> dict:
+async def run_daily(
+    repo: JobsRepo, log: EmailLogRepo, suppressions: SuppressionRepo, now: datetime | None = None, budget_seconds: float | None = None,
+) -> dict:
     now = now or datetime.now(timezone.utc)
     started = time.monotonic()
     deadline = started + (budget_seconds if budget_seconds is not None else settings.jobs_budget_seconds)
     result: dict = {}
     for name, job in (
         ("birthdays", lambda: run_birthdays(repo, log, today_sgt(), deadline)),
-        ("followups", lambda: run_followups(repo, log, now, deadline)),
+        ("followups", lambda: run_followups(repo, log, suppressions, now, deadline)),
         ("cleanup", lambda: run_cleanup(repo, now)),
     ):
         try:

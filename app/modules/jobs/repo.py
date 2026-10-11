@@ -62,12 +62,6 @@ class JobsRepo:
             .eq("status", "paid").gte("paid_at", _iso(since)).lte("paid_at", _iso(until)).execute().data
         )
 
-    def unsubscribed_among(self, user_ids: list[str]) -> set[str]:
-        if not user_ids:
-            return set()
-        rows = self._db.table("profiles").select("user_id").in_("user_id", user_ids).eq("is_unsubscribed", True).execute().data
-        return {r["user_id"] for r in rows}
-
     def birthday_profiles(self, month: int, day: int) -> list[dict]:
         return self._db.rpc("birthday_profiles", {"m": month, "d": day}).execute().data
 

@@ -13,6 +13,7 @@ from app.core.logging_setup import log_event
 from app.core.rate_limit import check_key, client_ip
 from app.modules.jobs.repo import EmailLogRepo, JobsRepo, get_email_log, get_jobs_repo
 from app.modules.jobs.service import run_daily
+from app.modules.unsubscribe.repo import SuppressionRepo, get_suppression_repo
 
 _log = logging.getLogger("jobs")
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -28,6 +29,9 @@ def require_jobs_secret(request: Request, x_jobs_secret: Annotated[str, Header()
 
 
 @router.post("/daily", dependencies=[Depends(require_jobs_secret)])
-async def daily(repo: JobsRepo = Depends(get_jobs_repo), log: EmailLogRepo = Depends(get_email_log)):
+async def daily(
+    repo: JobsRepo = Depends(get_jobs_repo), log: EmailLogRepo = Depends(get_email_log),
+    suppressions: SuppressionRepo = Depends(get_suppression_repo),
+):
     """Birthday emails, 7-day follow-ups and stale-signup cleanup. Safe to call repeatedly."""
-    return await run_daily(repo, log)
+    return await run_daily(repo, log, suppressions)
