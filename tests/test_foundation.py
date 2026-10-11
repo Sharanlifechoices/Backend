@@ -197,14 +197,21 @@ def test_session_only_order_gets_a_session_confirmation():
     assert "session" in subject.lower() and "Chakra Reading" in html and "Namaste, Asha." in html and "Download" not in html
 
 
-def test_birthday_email_includes_the_month_reading_only_when_written(monkeypatch):
+def test_birthday_email_uses_first_name_and_support_address():
+    from app.core.email_templates import birthday_email
+
+    subject, html = birthday_email("Asha Rao", "https://u/x")
+    assert subject == "🎂 Happy Birthday, Asha — Your New Year Around the Sun Begins"
+    assert "Namaste Asha," in html and "?book=1" in html and "support@my-lifechoices.com" in html and "yogi.sk7" not in html
+    assert "https://u/x" in html
+
+
+def test_every_email_shows_the_support_address():
     from app.core import email_templates as t
 
-    monkeypatch.setitem(t.MONTH_READINGS, 10, "Lean into patience.\n\nWatch your pace.")
-    _, with_reading = t.birthday_email("Asha Rao", "https://u/x", 10)
-    assert "For you, this October year:" in with_reading and "Lean into patience." in with_reading
-    _, without = t.birthday_email("Asha Rao", "https://u/x", 11)
-    assert "For you, this" not in without and "Namaste, Asha," in without and "Book your birthday reading" in without
+    pages = [t.otp_email("A", "123456", "signup")[1], t.welcome_email("A")[1], t.newsletter_email("S", "<p>x</p>", "https://u")[1],
+             t.purchase_email("A", [_book(1)], "SGD 1")[1], t.followup_email("A", [], "https://u")[1]]
+    assert all("support@my-lifechoices.com" in html and "yogi.sk7" not in html for html in pages)
 
 
 def test_letters_escape_user_names():

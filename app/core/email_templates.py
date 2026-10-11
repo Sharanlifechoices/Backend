@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-import calendar
 import re
 from html import escape
 
-from app.core.birthday_readings import MONTH_READINGS
 from app.core.config import settings
 
 _GOLD = "#d4a853"
 _BG = "#050510"
 _CARD = "#0f0f2d"
 SITE_LABEL = "www.my-lifechoices.com"
-CONTACT_EMAIL = "yogi.sk7@gmail.com"
+CONTACT_EMAIL = "support@my-lifechoices.com"  # the one support address used in every email
 
 
-def _layout(title: str, body_html: str, footer_html: str = "") -> str:
+def _layout(title: str, body_html: str, footer_html: str = "", support: bool = True) -> str:
+    if support:
+        footer_html = (footer_html or "With gratitude, Sharan Babaji &amp; team") + (
+            f'<br>Need help? <a style="color:{_GOLD}" href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a>'
+        )
     title_row = (
         f'<tr><td style="font-size:20px;font-weight:bold;padding-bottom:12px">{escape(title)}</td></tr>' if title else ""
     )
@@ -114,7 +116,7 @@ def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str,
             + _signature()
             + paid
         )
-        return "Your session request is received", _layout("", body)
+        return "Your session request is received", _layout("", body, support=False)
 
     many = len(books) > 1
     links = ""
@@ -153,7 +155,7 @@ def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str,
         + _signature()
         + paid
     )
-    return "Welcome to the World of NumberSaysSo — Your Book Is Ready", _layout("", body)
+    return "Welcome to the World of NumberSaysSo — Your Book Is Ready", _layout("", body, support=False)
 
 
 def _unsub_footer(url: str) -> str:
@@ -189,36 +191,32 @@ def followup_email(name: str, item_titles: list[str] | None = None, unsubscribe_
         + _button("Book a session", booking_url())
         + _signature()
     )
-    return "How has your Blueprint been speaking to you?", _layout("", body, _unsub_footer(unsubscribe_url))
+    return "How has your Blueprint been speaking to you?", _layout("", body, _unsub_footer(unsubscribe_url), support=False)
 
 
-def birthday_email(name: str, unsubscribe_url: str = "", month: int | None = None) -> tuple[str, str]:
-    """`month` is the birth month (1-12); its reading, if Sharan has written one, is included."""
-    reading = MONTH_READINGS.get(month or 0, "").strip()
-    month_html = ""
-    if reading:
-        month_html = f"<p><strong>For you, this {escape(calendar.month_name[month])} year:</strong></p>" + "".join(
-            "<p>" + escape(part).replace("\n", "<br>") + "</p>" for part in reading.split("\n\n")
-        )
+def birthday_email(name: str, unsubscribe_url: str = "") -> tuple[str, str]:
+    first = first_name(name)
     body = (
         _letter(
-            f"Namaste, {first_name(name)},",
-            "Happy birthday.",
-            "Today isn't just another day on the calendar for you — it's the day your own cycle turns over. A new year of your "
-            "Blueprint begins, and I didn't want it to pass without a word from me.",
+            f"🙏 Namaste {first},",
+            "Happy Birthday from all of us at My LifeChoices!",
+            "Today isn't just another day on the calendar — it's the start of a brand new cycle around the sun for you. "
+            "A fresh set of numbers, a fresh set of possibilities.",
+            "I'm Sharan Ji Baba, and on this day especially, I like to remind the NumberSaysSo family: your birthday is when your "
+            "personal energy resets. It's the best time to pause, reflect, and ask — what do I want this year to carry?",
+            "If you've ever been curious about what your numbers say about the year ahead — your 9-year cycles, what's opening up, "
+            "what's winding down — this is the perfect moment for a personal reading.",
+            "Whenever you're ready, I'm just a message away 👇",
         )
-        + month_html
-        + _letter(
-            "Carry that with you as gently or as seriously as you like. You don't need to do anything with it today except blow "
-            "out a candle and let it settle.",
-            "That's really all I wanted to say. Just — happy birthday, and thank you for letting this journey include me in it, "
-            "even in this small way.",
-            "Wishing you a year that surprises you in all the right ways.",
+        + _button("Book a personal reading", booking_url())
+        + _letter("Wishing you a year of clarity, alignment, and high vibration ✨")
+        + (
+            "<p>Keep shining,<br>— <strong>Sharan Ji Baba</strong><br>"
+            f'<a style="color:{_GOLD}" href="{escape(settings.frontend_url, quote=True)}">{escape(SITE_LABEL)}</a><br>'
+            f"✉️ {escape(CONTACT_EMAIL)}</p>"
         )
-        + _button("Book your birthday reading", booking_url())
-        + _signature("With love,")
     )
-    return "Happy Birthday — a little something for your year ahead 🎂", _layout("", body, _unsub_footer(unsubscribe_url))
+    return f"🎂 Happy Birthday, {first} — Your New Year Around the Sun Begins", _layout("", body, _unsub_footer(unsubscribe_url), support=False)
 
 
 def newsletter_email(subject: str, body_html: str, unsubscribe_url: str) -> tuple[str, str]:

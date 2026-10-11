@@ -78,7 +78,7 @@ async def run_birthdays(repo: JobsRepo, log: EmailLogRepo, suppressions: Suppres
                 return stats
             name = profile.get("full_name") or "friend"
             await send_once(log, f"birthday:{profile['user_id']}:{today.year}", "birthday", profile["email"],
-                            lambda n=name, e=profile["email"], m=month: birthday_email(n, unsubscribe_url(e), m), stats,
+                            lambda n=name, e=profile["email"]: birthday_email(n, unsubscribe_url(e)), stats,
                             headers=unsubscribe_headers(profile["email"]))
     for month, day in birthday_dates(today):
         guests = await asyncio.to_thread(repo.birthday_guest_buyers, month, day)
@@ -92,7 +92,7 @@ async def run_birthdays(repo: JobsRepo, log: EmailLogRepo, suppressions: Suppres
                 continue
             name = guest.get("customer_name") or "friend"
             await send_once(log, f"birthday:{guest['email']}:{today.year}", "birthday", guest["email"],
-                            lambda n=name, e=guest["email"], m=month: birthday_email(n, unsubscribe_url(e), m), stats,
+                            lambda n=name, e=guest["email"]: birthday_email(n, unsubscribe_url(e)), stats,
                             headers=unsubscribe_headers(guest["email"]))
     return stats
 
