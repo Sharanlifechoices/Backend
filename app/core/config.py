@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "logs/api.log"  # empty string disables the rotating file handler
     log_body_max_chars: int = 2000
+
+    @field_validator("supabase_url", "frontend_url", "public_api_url")
+    @classmethod
+    def _strip_trailing_slash(cls, v: str) -> str:
+        return v.strip().rstrip("/")  # a trailing slash breaks the JWKS URL and the JWT issuer check
 
     @property
     def cors_origins(self) -> list[str]:
