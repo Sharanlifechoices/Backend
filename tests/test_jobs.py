@@ -96,7 +96,7 @@ def test_followup_goes_out_once_for_orders_a_week_old(env):
     repo.orders = [order("o7", 7), order("o3", 3), order("o30", 30)]
     out = run(repo, log)
     assert out["followups"]["sent"] == 1 and [s["kind"] for s in sent] == ["followup"] and "followup:o7" in log.rows
-    assert "The Numbers Say So" in sent[0]["html"]
+    assert "Chronicle" in sent[0]["html"] and "?book=1" in sent[0]["html"]
     run(repo, log)  # cron retry the same day
     assert len(sent) == 1
 
@@ -127,7 +127,7 @@ def test_failed_send_is_retried_next_run(env):
 def test_birthdays_once_per_year(env):
     repo, log, sent, supp = env
     repo.birthdays = {(10, 11): [{"user_id": "u1", "email": "a@b.c", "full_name": "Asha Rao"}]}
-    assert run(repo, log)["birthdays"]["sent"] == 1 and sent[0]["kind"] == "birthday" and "Asha Rao" in sent[0]["html"]
+    assert run(repo, log)["birthdays"]["sent"] == 1 and sent[0]["kind"] == "birthday" and "Namaste, Asha," in sent[0]["html"]
     run(repo, log)
     assert len(sent) == 1 and "birthday:u1:2026" in log.rows
 

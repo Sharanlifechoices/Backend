@@ -166,3 +166,49 @@ def test_token_issued_slightly_in_the_future_is_accepted(monkeypatch):
     claims["iat"] = now + 600  # a genuinely wrong clock is still rejected
     with pytest.raises(jwt.InvalidTokenError):
         decode_token(jwt.encode(claims, settings.supabase_jwt_secret, algorithm="HS256"))
+
+
+# ---- Sharan's email copy -------------------------------------------------------------------
+def _book(n, pdf="https://cdn/x.pdf"):
+    return {"type": "book", "title": "The Numbers Say So", "subtitle": f"Variant {n}", "pdf_url": pdf, "detail": ""}
+
+
+def test_purchase_email_links_the_book_that_was_bought():
+    from app.core.email_templates import purchase_email
+
+    subject, html = purchase_email("Asha Rao", [_book(4, "https://cdn/book-4.pdf")], "SGD 27.75")
+    assert subject == "Welcome to the World of NumberSaysSo — Your Book Is Ready"
+    assert 'href="https://cdn/book-4.pdf"' in html and "Variant 4" in html and "Your copy is ready" in html and "?book=1" in html
+    _, many = purchase_email("A", [_book(1, "https://cdn/1.pdf"), _book(2, "https://cdn/2.pdf")], "SGD 55.50")
+    assert "https://cdn/1.pdf" in many and "https://cdn/2.pdf" in many and "Your copies are ready" in many
+
+
+def test_purchase_email_never_sends_a_dead_download_button():
+    from app.core.email_templates import purchase_email
+
+    _, html = purchase_email("A", [_book(3, "")], "SGD 1")
+    assert "Download:" not in html and "just reply to this email" in html
+
+
+def test_session_only_order_gets_a_session_confirmation():
+    from app.core.email_templates import purchase_email
+
+    subject, html = purchase_email("Asha Rao", [{"type": "service", "title": "Chakra Reading", "detail": "12 Oct 2026, 2:00 PM SGT"}], "SGD 96.00")
+    assert "session" in subject.lower() and "Chakra Reading" in html and "Namaste, Asha." in html and "Download" not in html
+
+
+def test_birthday_email_includes_the_month_reading_only_when_written(monkeypatch):
+    from app.core import email_templates as t
+
+    monkeypatch.setitem(t.MONTH_READINGS, 10, "Lean into patience.\n\nWatch your pace.")
+    _, with_reading = t.birthday_email("Asha Rao", "https://u/x", 10)
+    assert "For you, this October year:" in with_reading and "Lean into patience." in with_reading
+    _, without = t.birthday_email("Asha Rao", "https://u/x", 11)
+    assert "For you, this" not in without and "Namaste, Asha," in without and "Book your birthday reading" in without
+
+
+def test_letters_escape_user_names():
+    from app.core.email_templates import birthday_email
+
+    _, html = birthday_email("<script>x</script>", "")
+    assert "<script>" not in html

@@ -43,7 +43,8 @@ async def send_purchase_confirmation(repo: OrdersRepo, catalog: CatalogRepo, ord
         lines = []
         for i in items:
             current = catalog.get(i["item_id"]) or {}
-            lines.append({"title": i["title"], "pdf_url": current.get("pdf_url") if i["type"] == "book" else "", "detail": _detail(i)})
+            lines.append({"type": i["type"], "title": i["title"], "subtitle": i.get("subtitle") or "",
+                          "pdf_url": current.get("pdf_url") if i["type"] == "book" else "", "detail": _detail(i)})
         subject, html = purchase_email(order.get("customer_name") or "there", lines, money(order["total_minor"], order["currency"]))
         await send_email(to=order["email"], subject=subject, html=html, kind="purchase")
         return True
