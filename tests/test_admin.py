@@ -218,6 +218,8 @@ def test_orders_listing_defaults_to_paid_and_passes_filters(ctx):
     assert r.status_code == 200 and r.json()["total"] == 1
     assert ctx.repo.calls[-1] == ("list_orders", "paid", "asha", "2026-01-01", "2026-02-01")  # until is inclusive
     assert ctx.get("/admin/orders?status=bogus", headers=H).status_code == 422
+    ctx.get("/admin/orders?status=all", headers=H)
+    assert ctx.repo.calls[-1][1] is None  # "all" means no status filter
     assert ctx.get("/admin/orders/missing", headers=H).status_code == 404
 
 

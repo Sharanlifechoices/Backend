@@ -39,13 +39,13 @@ def _not_found(what: str) -> HTTPException:
 # ---- purchases ------------------------------------------------------------------------
 @router.get("/orders")
 async def list_orders(
-    status_filter: Optional[Literal["created", "paid", "failed"]] = Query("paid", alias="status"), q: str = "",
+    status_filter: Literal["created", "paid", "failed", "all"] = Query("paid", alias="status"), q: str = "",
     since: Optional[date] = None, until: Optional[date] = None, limit: int = Page, offset: int = Query(0, ge=0),
     repo: AdminRepo = Depends(get_admin_repo),
 ):
     """All purchases (paid by default; pass status=created|failed to investigate unfinished payments)."""
     until_iso = (until + timedelta(days=1)).isoformat() if until else None
-    rows, total = await run_in_threadpool(repo.list_orders, status_filter, q, since.isoformat() if since else None, until_iso, limit, offset)
+    rows, total = await run_in_threadpool(repo.list_orders, None if status_filter == "all" else status_filter, q, since.isoformat() if since else None, until_iso, limit, offset)
     return {"orders": rows, "total": total}
 
 
