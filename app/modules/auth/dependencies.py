@@ -23,6 +23,14 @@ def _unauthorized(detail: str) -> HTTPException:
     return HTTPException(status.HTTP_401_UNAUTHORIZED, detail=detail, headers={"WWW-Authenticate": "Bearer"})
 
 
+async def optional_user(authorization: Optional[str] = Header(default=None)) -> Optional[CurrentUser]:
+    """For endpoints that work for guests but personalise for logged-in users. Bad tokens count as guest."""
+    try:
+        return await get_current_user(authorization)
+    except HTTPException:
+        return None
+
+
 async def get_current_user(authorization: Optional[str] = Header(default=None)) -> CurrentUser:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise _unauthorized("Not authenticated")

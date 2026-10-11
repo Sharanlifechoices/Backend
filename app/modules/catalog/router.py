@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.core.rate_limit import rate_limit
+from fastapi.concurrency import run_in_threadpool
+
+from app.modules.auth.dependencies import CurrentUser, optional_user
 from app.modules.catalog.recommend import recommend
+from app.modules.orders.repo import OrdersRepo, get_orders_repo
 from app.modules.catalog.repo import CatalogRepo, get_catalog_repo, public_view
 
 router = APIRouter(tags=["catalog"])
@@ -28,7 +32,11 @@ class RecommendationRequest(BaseModel):
 
 
 @router.post("/cart/recommendations", dependencies=[Depends(rate_limit("recommendations", 60, 60))])
-def recommendations(body: RecommendationRequest, repo: CatalogRepo = Depends(get_catalog_repo)):
-    """Works for guests too (the client sends the ids in its cart)."""
-    picks = recommend(body.item_ids, repo.all_active())
+async def recommendations(
+    body: RecommendationRequest, repo: CatalogRepo = Depends(get_catalog_repo),
+    user: CurrentUser | None = Depends(optional_user), orders: OrdersRepo = Depends(get_orders_repo),
+):
+    """Works for guests too (the client sends the ids in its cart). Logged-in users never get books they already own."""
+    owned = await run_in_threadpool(orders.owned_item_ids, user.id) if user else []
+    picks = recommend(body.item_ids, await run_in_threadpool(repo.all_active), owned_ids=owned)
     return {"recommendations": [{"item": public_view(p["item"]), "reason": p["reason"]} for p in picks]}

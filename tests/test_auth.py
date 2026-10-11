@@ -332,3 +332,17 @@ def test_logs_never_contain_passwords_or_codes(ctx):
     assert codes[0] not in http_lines
     assert "ref-token-123" not in http_lines and '"acc"' not in http_lines
     assert "<-- 200 POST /auth/login" in http_lines
+
+
+def test_verifying_email_links_guest_orders_and_survives_linking_failure(ctx, orders_repo):
+    client, backend, store, clock, codes = ctx
+    client.post("/auth/signup", json=GOOD)
+    assert client.post("/auth/verify-otp", json={"email": GOOD["email"], "code": codes[0]}).status_code == 200
+    assert len(orders_repo.linked) == 1 and orders_repo.linked[0][1] == "asha@example.com"
+
+    def broken(user_id, email):
+        raise RuntimeError("db down")
+
+    orders_repo.link_guest_orders = broken
+    client.post("/auth/signup", json={**GOOD, "email": "second@example.com"})
+    assert client.post("/auth/verify-otp", json={"email": "second@example.com", "code": codes[1]}).status_code == 200

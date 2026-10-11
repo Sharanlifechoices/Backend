@@ -17,6 +17,7 @@ from app.modules.auth import backend as be
 from app.modules.auth.backend import AuthBackend, get_backend
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.auth.otp import OtpCooldown, OtpError, OtpService, SupabaseOtpStore
+from app.modules.orders.repo import OrdersRepo, get_orders_repo
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -102,7 +103,8 @@ async def resend_otp(
 
 @router.post("/verify-otp", dependencies=[Depends(rate_limit("verify-otp", 20, 900))])
 async def verify_otp(
-    body: VerifyOtpRequest, backend: AuthBackend = Depends(get_backend), otp: OtpService = Depends(get_otp_service)
+    body: VerifyOtpRequest, backend: AuthBackend = Depends(get_backend), otp: OtpService = Depends(get_otp_service),
+    orders: OrdersRepo = Depends(get_orders_repo),
 ):
     profile = await run_in_threadpool(backend.profile_by_email, body.email)
     try:
@@ -113,6 +115,12 @@ async def verify_otp(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=_OTP_MESSAGES["invalid_or_expired"])
 
     await run_in_threadpool(backend.confirm_email, profile["user_id"])
+    try:  # attach purchases made as a guest (or migrated from the old site) to the new account
+        linked = await run_in_threadpool(orders.link_guest_orders, profile["user_id"], body.email)
+        if linked:
+            log_event(_log, "guest orders linked", {"user_id": profile["user_id"], "count": linked})
+    except Exception:
+        log_event(_log, "guest order linking failed (ignored)", {"user_id": profile["user_id"]}, level=logging.ERROR)
     try:
         subject, html = welcome_email(profile.get("full_name", ""))
         await send_email(to=body.email, subject=subject, html=html, kind="welcome")

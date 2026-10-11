@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.core.scheduling import validate_preferred_slot
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.cart.repo import CartRepo, get_cart_repo
+from app.modules.cart.rules import check_line
 from app.modules.catalog.repo import CatalogRepo, get_catalog_repo, public_view
 
 router = APIRouter(prefix="/cart", tags=["cart"])
@@ -40,14 +41,7 @@ class MergeRequest(BaseModel):
 
 def _check_line(item: Optional[dict], line: CartLineIn) -> None:
     """Raise ValueError (user-facing) if this line cannot be added to a cart."""
-    if item is None:
-        raise ValueError("This item is no longer available")
-    if item.get("price_minor") is None:
-        raise ValueError("This item is enquiry-only and cannot be added to the cart")
-    if item["requires_schedule"]:
-        validate_preferred_slot(line.preferred_date, line.preferred_time)
-    elif line.preferred_date or line.preferred_time:
-        raise ValueError("This item does not take a preferred date or time")
+    check_line(item, line.preferred_date, line.preferred_time)
 
 
 def _cart_view(lines: list[dict], catalog: CatalogRepo) -> dict:
