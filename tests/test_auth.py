@@ -261,13 +261,17 @@ def test_forgot_and_reset_password_flow(ctx):
     client, backend, store, clock, codes = ctx
     client.post("/auth/signup", json=GOOD)
     client.post("/auth/verify-otp", json={"email": GOOD["email"], "code": codes[0]})
-    # unknown email: same response, no email
+    # unknown email: clear "no account" answer, no email
     n = len(codes)
-    assert client.post("/auth/forgot-password", json={"email": "nobody@example.com"}).status_code == 202
+    unknown = client.post("/auth/forgot-password", json={"email": "nobody@example.com"})
+    assert unknown.status_code == 404 and "couldn't find an account" in unknown.json()["detail"]
     assert len(codes) == n
     # known email
     assert client.post("/auth/forgot-password", json={"email": GOOD["email"]}).status_code == 202
     assert len(codes) == n + 1
+    # asking again inside the resend cooldown is told to wait (not silently "sent")
+    again = client.post("/auth/forgot-password", json={"email": GOOD["email"]})
+    assert again.status_code == 429 and "wait" in again.json()["detail"] and len(codes) == n + 1
     # weak new password rejected before the code is spent
     weak = client.post("/auth/reset-password", json={"email": GOOD["email"], "code": codes[-1], "new_password": "weak"})
     assert weak.status_code == 422
@@ -346,3 +350,11 @@ def test_verifying_email_links_guest_orders_and_survives_linking_failure(ctx, or
     orders_repo.link_guest_orders = broken
     client.post("/auth/signup", json={**GOOD, "email": "second@example.com"})
     assert client.post("/auth/verify-otp", json={"email": "second@example.com", "code": codes[1]}).status_code == 200
+
+
+def test_forgot_password_for_an_unverified_signup_gets_no_code(ctx):
+    client, backend, store, clock, codes = ctx
+    client.post("/auth/signup", json=GOOD)  # signed up but never entered the code
+    n = len(codes)
+    r = client.post("/auth/forgot-password", json={"email": GOOD["email"]})
+    assert r.status_code == 404 and len(codes) == n

@@ -163,13 +163,14 @@ async def forgot_password(
 ):
     check_key(f"forgot:email:{body.email}", 5, 3600)
     profile = await run_in_threadpool(backend.profile_by_email, body.email)
-    if profile and await run_in_threadpool(backend.is_confirmed, profile["user_id"]):
-        try:
-            await _send_otp(otp, body.email, profile.get("full_name", ""), "reset")
-        except HTTPException as exc:
-            # Cooldown / email failure must not reveal whether the account exists.
-            log_event(_log, "forgot-password code not sent", {"status": exc.status_code}, level=logging.WARNING)
-    return {"message": "If an account exists for this email, a reset code has been sent"}
+    if not profile or not await run_in_threadpool(backend.is_confirmed, profile["user_id"]):
+        # Deliberately explicit (signup already reveals registered emails); rate limits above still apply.
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="We couldn't find an account with this email. Check the spelling or create an account.",
+        )
+    await _send_otp(otp, body.email, profile.get("full_name", ""), "reset")  # cooldown (429) / send failure (502) reach the user
+    return {"message": "A reset code has been sent to your email."}
 
 
 @router.post("/reset-password", dependencies=[Depends(rate_limit("reset", 20, 900))])
