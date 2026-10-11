@@ -7,8 +7,10 @@ services:
       - key: ENV
         value: production
       - key: EMAIL_MODE
-        value: mock
+        value: resend
       - key: FRONTEND_URL
+        sync: false
+      - key: EXTRA_CORS_ORIGIN
         sync: false
       - key: PUBLIC_API_URL
         sync: false
@@ -21,6 +23,10 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_FROM_NAME
+        value: My LifeChoices
+      - key: EMAIL_REPLY_TO
         sync: false
       - key: OTP_SECRET
         generateValue: true
