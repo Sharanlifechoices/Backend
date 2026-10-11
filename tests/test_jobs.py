@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.main import app
 from app.modules.jobs import service
 from app.modules.jobs.repo import get_email_log, get_jobs_repo
+from app.modules.admin.repo import get_admin_repo
 from app.modules.unsubscribe.repo import get_suppression_repo
 
 NOW = datetime(2026, 10, 11, 4, 0, tzinfo=timezone.utc)
@@ -168,10 +169,12 @@ def client(env, monkeypatch):
     app.dependency_overrides[get_jobs_repo] = lambda: repo
     app.dependency_overrides[get_email_log] = lambda: log
     app.dependency_overrides[get_suppression_repo] = lambda: supp
+    app.dependency_overrides[get_admin_repo] = lambda: type("A", (), {"stalled_newsletters": lambda self, before: []})()
     yield TestClient(app)
     app.dependency_overrides.pop(get_jobs_repo, None)
     app.dependency_overrides.pop(get_email_log, None)
     app.dependency_overrides.pop(get_suppression_repo, None)
+    app.dependency_overrides.pop(get_admin_repo, None)
 
 
 def test_daily_endpoint_requires_the_secret(client):

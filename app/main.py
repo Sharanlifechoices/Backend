@@ -14,7 +14,9 @@ from app.core.logging_setup import setup_logging
 from app.core.request_logging import RequestLoggingMiddleware
 from app.modules.auth import router as auth_router
 from app.modules.cart import router as cart_router
+from app.modules.admin import router as admin_router
 from app.modules.catalog import router as catalog_router
+from app.modules.gallery import router as gallery_router
 from app.modules.jobs import router as jobs_router
 from app.modules.orders import router as orders_router
 from app.modules.unsubscribe import router as unsubscribe_router
@@ -55,6 +57,8 @@ def create_app() -> FastAPI:
     app.include_router(orders_router.router)
     app.include_router(jobs_router.router)
     app.include_router(unsubscribe_router.router)
+    app.include_router(gallery_router.router)
+    app.include_router(admin_router.router)
 
     @app.get("/health")
     async def health() -> dict:

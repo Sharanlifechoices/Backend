@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.core.config import settings
 from app.core.logging_setup import log_event
 from app.core.rate_limit import check_key, client_ip
+from app.modules.admin.repo import AdminRepo, get_admin_repo
 from app.modules.jobs.repo import EmailLogRepo, JobsRepo, get_email_log, get_jobs_repo
 from app.modules.jobs.service import run_daily
 from app.modules.unsubscribe.repo import SuppressionRepo, get_suppression_repo
@@ -31,7 +32,7 @@ def require_jobs_secret(request: Request, x_jobs_secret: Annotated[str, Header()
 @router.post("/daily", dependencies=[Depends(require_jobs_secret)])
 async def daily(
     repo: JobsRepo = Depends(get_jobs_repo), log: EmailLogRepo = Depends(get_email_log),
-    suppressions: SuppressionRepo = Depends(get_suppression_repo),
+    suppressions: SuppressionRepo = Depends(get_suppression_repo), admin: AdminRepo = Depends(get_admin_repo),
 ):
     """Birthday emails, 7-day follow-ups and stale-signup cleanup. Safe to call repeatedly."""
-    return await run_daily(repo, log, suppressions)
+    return await run_daily(repo, log, suppressions, admin=admin)

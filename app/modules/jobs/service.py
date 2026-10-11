@@ -116,16 +116,22 @@ async def run_cleanup(repo: JobsRepo, now: datetime) -> dict:
 
 async def run_daily(
     repo: JobsRepo, log: EmailLogRepo, suppressions: SuppressionRepo, now: datetime | None = None, budget_seconds: float | None = None,
+    admin=None,
 ) -> dict:
     now = now or datetime.now(timezone.utc)
     started = time.monotonic()
     deadline = started + (budget_seconds if budget_seconds is not None else settings.jobs_budget_seconds)
     result: dict = {}
-    for name, job in (
+    jobs = [
         ("birthdays", lambda: run_birthdays(repo, log, today_sgt(), deadline)),
         ("followups", lambda: run_followups(repo, log, suppressions, now, deadline)),
         ("cleanup", lambda: run_cleanup(repo, now)),
-    ):
+    ]
+    if admin is not None:  # finish any newsletter whose background send was cut off by a restart
+        from app.modules.admin.newsletter import resume_stalled
+
+        jobs.append(("newsletters", lambda: resume_stalled(admin, log, suppressions, deadline)))
+    for name, job in jobs:
         try:
             result[name] = await job()
         except Exception as exc:  # one broken job must not stop the others
