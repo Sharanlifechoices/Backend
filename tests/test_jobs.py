@@ -47,12 +47,16 @@ class FakeSuppressions:
 class FakeJobsRepo:
     def __init__(self):
         self.orders, self.birthdays, self.stale, self.deleted = [], {}, [], []
+        self.guest_birthdays = {}
 
     def paid_orders_between(self, since, until):
         return [o for o in self.orders if since <= o["paid_at"] <= until]
 
     def birthday_profiles(self, month, day):
         return self.birthdays.get((month, day), [])
+
+    def birthday_guest_buyers(self, month, day):
+        return self.guest_birthdays.get((month, day), [])
 
     def stale_unverified(self, cutoff):
         return [s for s in self.stale if s["created_at"] < cutoff]
@@ -206,3 +210,16 @@ def test_marketing_mails_carry_a_working_unsubscribe_link_and_headers(env):
         assert "Unsubscribe" in mail["html"] and mail["headers"]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
         url = mail["headers"]["List-Unsubscribe"].strip("<>")
         assert parse_token(url.split("token=")[1].replace("%2E", ".")) == mail["to"].lower()
+
+
+def test_birthday_goes_to_buyers_without_an_account_unless_unsubscribed(env):
+    repo, log, sent, supp = env
+    repo.guest_birthdays = {(10, 11): [
+        {"email": "guest@x.com", "customer_name": "Gita"},
+        {"email": "optout@x.com", "customer_name": "Omar"},
+    ]}
+    supp.emails = {"optout@x.com"}
+    out = run(repo, log, supp)["birthdays"]
+    assert out["sent"] == 1 and out["skipped"] == 1 and sent[0]["to"] == "guest@x.com" and "Gita" in sent[0]["html"]
+    run(repo, log, supp)
+    assert len(sent) == 1 and "birthday:guest@x.com:2026" in log.rows  # once per year

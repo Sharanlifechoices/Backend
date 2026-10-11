@@ -69,7 +69,7 @@ def _is_leap(year: int) -> bool:
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
 
-async def run_birthdays(repo: JobsRepo, log: EmailLogRepo, today: date, deadline: float) -> dict:
+async def run_birthdays(repo: JobsRepo, log: EmailLogRepo, suppressions: SuppressionRepo, today: date, deadline: float) -> dict:
     stats = new_stats()
     for month, day in birthday_dates(today):
         for profile in await asyncio.to_thread(repo.birthday_profiles, month, day):
@@ -80,6 +80,20 @@ async def run_birthdays(repo: JobsRepo, log: EmailLogRepo, today: date, deadline
             await send_once(log, f"birthday:{profile['user_id']}:{today.year}", "birthday", profile["email"],
                             lambda n=name, e=profile["email"]: birthday_email(n, unsubscribe_url(e)), stats,
                             headers=unsubscribe_headers(profile["email"]))
+    for month, day in birthday_dates(today):
+        guests = await asyncio.to_thread(repo.birthday_guest_buyers, month, day)
+        suppressed = await asyncio.to_thread(suppressions.suppressed_among, [g["email"] for g in guests])
+        for guest in guests:
+            if time.monotonic() > deadline:
+                stats["stopped_early"] = True
+                return stats
+            if guest["email"] in suppressed:
+                stats["skipped"] += 1
+                continue
+            name = guest.get("customer_name") or "friend"
+            await send_once(log, f"birthday:{guest['email']}:{today.year}", "birthday", guest["email"],
+                            lambda n=name, e=guest["email"]: birthday_email(n, unsubscribe_url(e)), stats,
+                            headers=unsubscribe_headers(guest["email"]))
     return stats
 
 
@@ -123,7 +137,7 @@ async def run_daily(
     deadline = started + (budget_seconds if budget_seconds is not None else settings.jobs_budget_seconds)
     result: dict = {}
     jobs = [
-        ("birthdays", lambda: run_birthdays(repo, log, today_sgt(), deadline)),
+        ("birthdays", lambda: run_birthdays(repo, log, suppressions, today_sgt(), deadline)),
         ("followups", lambda: run_followups(repo, log, suppressions, now, deadline)),
         ("cleanup", lambda: run_cleanup(repo, now)),
     ]

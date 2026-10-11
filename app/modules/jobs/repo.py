@@ -65,6 +65,10 @@ class JobsRepo:
     def birthday_profiles(self, month: int, day: int) -> list[dict]:
         return self._db.rpc("birthday_profiles", {"m": month, "d": day}).execute().data
 
+    def birthday_guest_buyers(self, month: int, day: int) -> list[dict]:
+        """Buyers without an account whose birthday is on file (imported from the old site)."""
+        return self._db.rpc("birthday_guest_buyers", {"m": month, "d": day}).execute().data
+
     def stale_unverified(self, cutoff: datetime) -> list[dict]:
         return (
             self._db.table("profiles").select("user_id, email").eq("email_verified", False)
