@@ -33,10 +33,13 @@ def _layout(title: str, body_html: str, footer_html: str = "", support: bool = T
 
 
 def _button(label: str, url: str) -> str:
+    """A table-based button: stays one solid shape when a long label wraps (inline links break in Gmail/Outlook)."""
     return (
-        f'<p style="text-align:center;margin:24px 0"><a href="{escape(url, quote=True)}" '
-        f'style="background:{_GOLD};color:#1a1204;padding:12px 24px;border-radius:999px;'
-        f'text-decoration:none;font-weight:bold">{escape(label)}</a></p>'
+        '<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:22px auto;max-width:100%"><tr>'
+        f'<td align="center" bgcolor="{_GOLD}" style="background:{_GOLD};border-radius:12px">'
+        f'<a href="{escape(url, quote=True)}" style="display:block;padding:14px 22px;color:#1a1204;font-size:15px;'
+        f'line-height:1.4;font-weight:bold;text-align:center;text-decoration:none">{escape(label)}</a>'
+        "</td></tr></table>"
     )
 
 
