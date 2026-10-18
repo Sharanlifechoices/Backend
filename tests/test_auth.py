@@ -218,6 +218,14 @@ def test_signup_field_validation(ctx, override):
     assert client.post("/auth/signup", json={**GOOD, **override}).status_code == 422
 
 
+@pytest.mark.parametrize("phone", [{"phone": ""}, {"phone": "   "}, None])
+def test_signup_phone_is_optional(ctx, phone):
+    client, *_ = ctx
+    body = {k: v for k, v in GOOD.items() if k != "phone"}
+    r = client.post("/auth/signup", json={**body, **(phone or {})})
+    assert r.status_code == 202
+
+
 def test_signup_duplicate_confirmed_account(ctx):
     client, backend, store, clock, codes = ctx
     client.post("/auth/signup", json=GOOD)

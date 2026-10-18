@@ -13,6 +13,8 @@ _PHONE_RE = re.compile(r"^\+?[0-9][0-9 ()\-]{6,19}$")
 
 def _clean_phone(value: str) -> str:
     value = value.strip()
+    if not value:
+        return ""  # phone is optional
     if not _PHONE_RE.match(value):
         raise ValueError("Enter a valid phone number (7-20 digits, may start with +)")
     return value
@@ -38,7 +40,7 @@ class _EmailModel(BaseModel):
 class SignUpRequest(_EmailModel):
     full_name: str = Field(min_length=2, max_length=80)
     dob: date
-    phone: str
+    phone: str = ""
     password: str = Field(max_length=128)
 
     _v_password = field_validator("password")(validate_password)
