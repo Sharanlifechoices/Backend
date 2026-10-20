@@ -12,6 +12,8 @@ _BG = "#050510"
 _CARD = "#0f0f2d"
 SITE_LABEL = "www.my-lifechoices.com"
 CONTACT_EMAIL = "support@my-lifechoices.com"  # the one support address used in every email
+BOOK_SUBJECT = "Important: Welcome to the World of NumberSaysSo — Your Book Is Ready"
+BOOK_SUBJECT_SEARCH = "Welcome to the World of NumberSaysSo"  # what the checkout screen tells buyers to search for
 
 
 def _layout(title: str, body_html: str, footer_html: str = "", support: bool = True) -> str:
@@ -153,12 +155,13 @@ def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str,
             "A personal reading decodes your specific 9-year cycles, so you catch the pitfalls and negotiate success.",
             "If that calls to you, you're always welcome to book a session, whenever it feels right.",
         )
-        + _button("Book a session", booking_url())
+        # a text link, not a second big button: one clear action (the download) reads as a receipt, not a promotion
+        + f'<p><a style="color:{_GOLD}" href="{escape(booking_url(), quote=True)}">Book a session</a></p>'
         + session_html
         + _signature()
         + paid
     )
-    return "Welcome to the World of NumberSaysSo — Your Book Is Ready", _layout("", body, support=False)
+    return BOOK_SUBJECT, _layout("", body, support=False)
 
 
 def _unsub_footer(url: str) -> str:

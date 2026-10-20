@@ -65,8 +65,9 @@ async def fulfil_paid_order(
     order = await run_in_threadpool(repo.by_razorpay_id, razorpay_order_id)
     if order is None:
         return None
-    first = await run_in_threadpool(repo.mark_paid, razorpay_order_id, payment_id) is not None
-    order = {**order, "status": "paid"}
+    won = await run_in_threadpool(repo.mark_paid, razorpay_order_id, payment_id)
+    first = won is not None
+    order = {**order, "status": "paid", **({"paid_at": won.get("paid_at")} if won else {})}
     items = await run_in_threadpool(repo.items, order["id"])
     bookings = await run_in_threadpool(repo.ensure_bookings, order, items)
     if first and order["source"] == "cart" and order.get("user_id"):

@@ -175,6 +175,8 @@ def test_verify_marks_paid_books_booking_clears_cart_and_emails_once(ctx):
     assert {i["item_id"] for i in ctx.repo.removed_cart_lines} == {"book-1", "svc-n"}
     assert len(ctx.sent) == 1 and ctx.sent[0]["to"] == "a@b.c" and "https://secret/1.pdf" in ctx.sent[0]["html"]
     assert [i["pdf_url"] for i in r.json()["items"] if i["type"] == "book"] == ["https://secret/1.pdf"]
+    assert r.json()["paid_at"] and r.json()["confirmation_email"]["sent_to"] == "a@b.c"
+    assert r.json()["confirmation_email"]["search_for"] == "Welcome to the World of NumberSaysSo"
 
 
 def test_replaying_verify_is_idempotent(ctx):

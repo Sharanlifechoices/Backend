@@ -176,11 +176,21 @@ def _book(n, pdf="https://cdn/x.pdf"):
 def test_purchase_email_links_the_book_that_was_bought():
     from app.core.email_templates import purchase_email
 
+    from app.core.email_templates import BOOK_SUBJECT, BOOK_SUBJECT_SEARCH
+
     subject, html = purchase_email("Asha Rao", [_book(4, "https://cdn/book-4.pdf")], "SGD 27.75")
-    assert subject == "Welcome to the World of NumberSaysSo — Your Book Is Ready"
+    assert subject == BOOK_SUBJECT == "Important: Welcome to the World of NumberSaysSo — Your Book Is Ready"
+    assert BOOK_SUBJECT_SEARCH in subject  # the phrase the checkout screen tells buyers to search for
     assert 'href="https://cdn/book-4.pdf"' in html and "Variant 4" in html and "Your copy is ready" in html and "?book=1" in html
     _, many = purchase_email("A", [_book(1, "https://cdn/1.pdf"), _book(2, "https://cdn/2.pdf")], "SGD 55.50")
     assert "https://cdn/1.pdf" in many and "https://cdn/2.pdf" in many and "Your copies are ready" in many
+
+
+def test_plain_text_twin_keeps_links_readable():
+    from app.core.email import html_to_text
+
+    text = html_to_text('<p>Hi&nbsp;there</p><a href="https://cdn/x.pdf" style="a">Download: Book</a><br>bye')
+    assert "Download: Book (https://cdn/x.pdf)" in text and "<" not in text
 
 
 def test_purchase_email_never_sends_a_dead_download_button():

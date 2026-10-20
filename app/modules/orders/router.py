@@ -15,6 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.email_templates import BOOK_SUBJECT_SEARCH
 from app.core.logging_setup import log_event
 from app.core.rate_limit import rate_limit
 from app.core.scheduling import BOOKING_WINDOW_DAYS, SLOTS, today_sgt
@@ -141,10 +142,14 @@ def _order_view(order: dict, items: list[dict], catalog: CatalogRepo | None = No
         if catalog and i["type"] == "book" and order["status"] == "paid":
             view["pdf_url"] = (catalog.get(i["item_id"]) or {}).get("pdf_url") or None  # owner-only download link
         out_items.append(view)
-    return {
+    view = {
         "id": order["id"], "status": order["status"], "total_minor": order["total_minor"], "currency": order["currency"],
         "paid_at": order.get("paid_at"), "created_at": order.get("created_at"), "items": out_items,
     }
+    if order["status"] == "paid" and any(i["type"] == "book" for i in items):
+        # lets the checkout-success screen say where the book was sent and what to search for if it is not in the inbox
+        view["confirmation_email"] = {"sent_to": order.get("email"), "search_for": BOOK_SUBJECT_SEARCH, "from": settings.resend_from_email}
+    return view
 
 
 @router.post("/checkout/verify", dependencies=[Depends(rate_limit("checkout-verify", 30, 600))])
