@@ -24,6 +24,8 @@ CATALOG = [
      "pdf_url": "https://secret/1.pdf", "tags": ["book"], "related_ids": ["svc-n"], "route": "/books/1", "requires_schedule": False, "sort_order": 1, "active": True},
     {"id": "book-2", "type": "book", "title": "The Numbers Say So", "subtitle": "S2", "price_minor": 2775, "currency": "SGD",
      "pdf_url": "https://secret/2.pdf", "tags": ["book"], "related_ids": ["book-1"], "route": "/books/2", "requires_schedule": False, "sort_order": 2, "active": True},
+    {"id": "course-x", "type": "course", "title": "RYS TTC200", "subtitle": "tagline", "price_minor": 2775, "currency": "SGD",
+     "pdf_url": "https://secret/course-x.zip", "tags": ["course"], "related_ids": [], "route": "/courses/x", "requires_schedule": False, "sort_order": 40, "active": True},
     {"id": "svc-n", "type": "service", "title": "Numerology Session", "subtitle": "", "price_minor": 9600, "currency": "SGD",
      "pdf_url": "", "tags": ["service"], "related_ids": [], "route": "/x", "requires_schedule": True, "sort_order": 20, "active": True},
     {"id": "retreat", "type": "retreat", "title": "Retreat", "subtitle": "", "price_minor": None, "currency": "SGD",
@@ -290,3 +292,15 @@ def test_recommendations_skip_books_the_user_owns(ctx):
     guest_ids = [r["item"]["id"] for r in ctx.post("/cart/recommendations", json={"item_ids": ["book-2"]}).json()["recommendations"]]
     assert "book-1" in guest_ids
 
+
+
+def test_course_purchase_delivers_the_zip_and_is_owned(ctx):
+    fill_cart(ctx, {"item_id": "course-x"})
+    body = ctx.post("/checkout").json()
+    assert body["amount"] == 2775
+    r = verify(ctx, body)
+    assert r.status_code == 200 and r.json()["status"] == "paid"
+    assert [i["pdf_url"] for i in r.json()["items"] if i["type"] == "course"] == ["https://secret/course-x.zip"]
+    assert r.json()["confirmation_email"]["search_for"] == "Welcome to the World of NumberSaysSo"
+    assert len(ctx.sent) == 1 and "https://secret/course-x.zip" in ctx.sent[0]["html"] and "course materials" in ctx.sent[0]["html"]
+    assert ctx.repo.owned_item_ids("user-1") == ["course-x"]

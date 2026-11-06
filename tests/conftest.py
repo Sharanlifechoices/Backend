@@ -49,7 +49,7 @@ class FakeOrdersRepo:
         return [{**o, "order_items": self.items(o["id"])} for o in self.orders if o["user_id"] == user_id and o["status"] == "paid"]
 
     def owned_item_ids(self, user_id):
-        return [i["item_id"] for o in self.orders if o["user_id"] == user_id and o["status"] == "paid" for i in self.items(o["id"]) if i["type"] == "book"]
+        return [i["item_id"] for o in self.orders if o["user_id"] == user_id and o["status"] == "paid" for i in self.items(o["id"]) if i["type"] in ("book", "course")]
 
     def mark_paid(self, rzp_id, payment_id):
         o = self._order(razorpay_order_id=rzp_id)

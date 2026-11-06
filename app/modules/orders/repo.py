@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.supabase_client import get_service_client
+from app.modules.catalog.types import is_deliverable
 
 
 def _now() -> str:
@@ -47,7 +48,7 @@ class OrdersRepo:
             self._db.table("orders").select("order_items(item_id, type)").eq("user_id", user_id).eq("status", "paid")
             .execute().data
         )
-        return [i["item_id"] for r in rows for i in r["order_items"] if i["type"] == "book"]
+        return [i["item_id"] for r in rows for i in r["order_items"] if is_deliverable(i["type"])]
 
     # -- payment fulfilment (idempotent) ---------------------------------------------
     def mark_paid(self, razorpay_order_id: str, payment_id: str) -> Optional[dict]:

@@ -219,3 +219,12 @@ def test_clear_cart(client):
     client.post("/cart/items", json={"item_id": "book-1"})
     assert client.delete("/cart").json()["items"] == []
     assert client.get("/cart").json()["total_minor"] == 0
+
+
+def test_owned_courses_are_excluded_like_books():
+    def course(slug, related=()):
+        return {**book(40), "id": f"course-{slug}", "type": "course", "tags": ["course", "yoga"], "related_ids": list(related), "route": f"/courses/{slug}"}
+
+    catalog = [*CATALOG, course("a", related=["course-b"]), course("b")]
+    assert "course-b" in [p["item"]["id"] for p in recommend(["course-a"], catalog)]
+    assert "course-b" not in [p["item"]["id"] for p in recommend(["course-a"], catalog, owned_ids=["course-b"])]

@@ -229,3 +229,25 @@ def test_letters_escape_user_names():
 
     _, html = birthday_email("<script>x</script>", "")
     assert "<script>" not in html
+
+
+def test_course_email_links_the_zip_without_the_numerology_letter():
+    from app.core.email_templates import purchase_email
+
+    course = {"item_id": "course-ttc200", "type": "course", "title": "RYS TTC200", "subtitle": "tagline", "pdf_url": "https://cdn/c.zip", "detail": ""}
+    _, html = purchase_email("Asha Rao", [course], "SGD 27.75")
+    assert 'href="https://cdn/c.zip"' in html and "RYS TTC200 — course materials (ZIP, 3 books)" in html
+    assert "Cosmic Blueprint" not in html and "Namaste, Asha." in html
+
+
+def test_numerology_letter_is_kept_when_a_numbers_say_so_book_is_in_the_order():
+    from app.core.email_templates import purchase_email
+
+    course = {"item_id": "course-ttc200", "type": "course", "title": "RYS TTC200", "subtitle": "", "pdf_url": "https://cdn/c.zip", "detail": ""}
+    book = {**_book(1, "https://cdn/1.pdf"), "item_id": "book-1"}
+    _, html = purchase_email("A", [book, course], "SGD 55.50")
+    assert "Cosmic Blueprint" in html and "https://cdn/1.pdf" in html and "https://cdn/c.zip" in html
+    # the other books are not numerology books either
+    other = {"item_id": "book-ayurveda", "type": "book", "title": "Ayurveda", "subtitle": "", "pdf_url": "https://cdn/a.pdf", "detail": ""}
+    _, html = purchase_email("A", [other], "SGD 27.75")
+    assert "Cosmic Blueprint" not in html and "https://cdn/a.pdf" in html

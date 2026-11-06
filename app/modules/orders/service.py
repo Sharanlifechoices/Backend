@@ -16,6 +16,7 @@ from app.core.email import send_email
 from app.core.email_templates import purchase_email
 from app.core.logging_setup import log_event
 from app.modules.catalog.repo import CatalogRepo
+from app.modules.catalog.types import is_deliverable
 from app.modules.orders.repo import OrdersRepo
 
 _log = logging.getLogger(__name__)
@@ -43,8 +44,8 @@ async def send_purchase_confirmation(repo: OrdersRepo, catalog: CatalogRepo, ord
         lines = []
         for i in items:
             current = catalog.get(i["item_id"]) or {}
-            lines.append({"type": i["type"], "title": i["title"], "subtitle": i.get("subtitle") or "",
-                          "pdf_url": current.get("pdf_url") if i["type"] == "book" else "", "detail": _detail(i)})
+            lines.append({"item_id": i["item_id"], "type": i["type"], "title": i["title"], "subtitle": i.get("subtitle") or "",
+                          "pdf_url": current.get("pdf_url") if is_deliverable(i["type"]) else "", "detail": _detail(i)})
         subject, html = purchase_email(order.get("customer_name") or "there", lines, money(order["total_minor"], order["currency"]))
         await send_email(to=order["email"], subject=subject, html=html, kind="purchase")
         return True

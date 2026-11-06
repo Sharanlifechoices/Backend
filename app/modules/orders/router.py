@@ -25,6 +25,7 @@ from app.modules.cart.repo import CartRepo, get_cart_repo
 from app.modules.cart.router import warm_catalog
 from app.modules.cart.rules import check_line
 from app.modules.catalog.repo import CatalogRepo
+from app.modules.catalog.types import is_deliverable
 from app.modules.orders import razorpay as rzp
 from app.modules.orders.razorpay import RazorpayClient, RazorpayError, get_razorpay
 from app.modules.orders.repo import OrdersRepo, get_orders_repo
@@ -139,14 +140,14 @@ def _order_view(order: dict, items: list[dict], catalog: CatalogRepo | None = No
     out_items = []
     for i in items:
         view = {k: i.get(k) for k in ("item_id", "type", "title", "subtitle", "price_minor", "currency", "preferred_date", "preferred_time")}
-        if catalog and i["type"] == "book" and order["status"] == "paid":
+        if catalog and is_deliverable(i["type"]) and order["status"] == "paid":
             view["pdf_url"] = (catalog.get(i["item_id"]) or {}).get("pdf_url") or None  # owner-only download link
         out_items.append(view)
     view = {
         "id": order["id"], "status": order["status"], "total_minor": order["total_minor"], "currency": order["currency"],
         "paid_at": order.get("paid_at"), "created_at": order.get("created_at"), "items": out_items,
     }
-    if order["status"] == "paid" and any(i["type"] == "book" for i in items):
+    if order["status"] == "paid" and any(is_deliverable(i["type"]) for i in items):
         # lets the checkout-success screen say where the book was sent and what to search for if it is not in the inbox
         view["confirmation_email"] = {"sent_to": order.get("email"), "search_for": BOOK_SUBJECT_SEARCH, "from": settings.resend_from_email}
     return view

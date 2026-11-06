@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from app.modules.catalog.types import is_deliverable
+
 _PEOPLE_ALSO_LIKED = "people_also_liked"
 _EXPLORE_WITH_SHARAN = "explore_with_sharan"
 
@@ -29,14 +31,14 @@ def recommend(
     cart_items = [by_id[i] for i in in_cart if i in by_id]
 
     related: set[str] = {rid for it in cart_items for rid in it.get("related_ids", [])}
-    cart_tags: set[str] = {t for it in cart_items for t in it.get("tags", []) if t not in ("book", "service")}
+    cart_tags: set[str] = {t for it in cart_items for t in it.get("tags", []) if t not in ("book", "course", "service")}
     cart_has_service = any(it["type"] == "service" for it in cart_items)
 
     scored: list[tuple[float, int, dict, str]] = []
     for item in catalog:
         if item["id"] in in_cart:
             continue
-        if item["type"] == "book" and item["id"] in owned:
+        if is_deliverable(item["type"]) and item["id"] in owned:
             continue
         score = 0.0
         directly_related = item["id"] in related
@@ -47,7 +49,7 @@ def recommend(
             score += 1
         if score == 0 and cart_items:
             continue  # with a non-empty cart, only suggest things that actually relate
-        reason = _PEOPLE_ALSO_LIKED if directly_related and item["type"] == "book" else _EXPLORE_WITH_SHARAN
+        reason = _PEOPLE_ALSO_LIKED if directly_related and is_deliverable(item["type"]) else _EXPLORE_WITH_SHARAN
         scored.append((-score, item.get("sort_order", 0), item, reason))
 
     scored.sort(key=lambda t: (t[0], t[1]))

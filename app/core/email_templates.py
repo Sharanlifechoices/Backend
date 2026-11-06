@@ -6,6 +6,7 @@ import re
 from html import escape
 
 from app.core.config import settings
+from app.modules.catalog.types import is_deliverable
 
 _GOLD = "#d4a853"
 _BG = "#050510"
@@ -93,13 +94,26 @@ def _signature(closing: str = "With warmth and light,") -> str:
 
 
 def book_label(item: dict) -> str:
+    if item.get("type") == "course":  # a course's subtitle is a tagline; say what the download is instead
+        return f"{item['title']} — course materials (ZIP, 3 books)"
     return f"{item['title']} — {item['subtitle']}" if item.get("subtitle") else item["title"]
 
 
+_NUMEROLOGY_BOOK_ID = re.compile(r"^book-\d$")
+
+
+def _is_numerology_book(item: dict) -> bool:
+    """The Cosmic Blueprint letter is written for the nine Numbers Say So books only.
+    A line without an item_id is treated as one of them (the original behaviour)."""
+    item_id = item.get("item_id")
+    return item.get("type") == "book" and (item_id is None or bool(_NUMEROLOGY_BOOK_ID.match(item_id)))
+
+
 def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str, str]:
-    """Order confirmation in Sharan's voice. Books get the onboarding letter with that book's own download link."""
-    books = [i for i in items if i.get("type") == "book"]
-    sessions = [i for i in items if i.get("type") != "book"]
+    """Order confirmation in Sharan's voice. Books and courses get that item's own download link; the numerology
+    onboarding letter is only used when a Numbers Say So book is in the order."""
+    books = [i for i in items if is_deliverable(i.get("type", ""))]
+    sessions = [i for i in items if not is_deliverable(i.get("type", ""))]
     session_html = ""
     if sessions:
         rows = "".join(
@@ -124,6 +138,7 @@ def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str,
         return "Your session request is received", _layout("", body, support=False)
 
     many = len(books) > 1
+    numerology = any(_is_numerology_book(b) for b in books)
     links = ""
     for b in books:
         if b.get("pdf_url"):
@@ -135,6 +150,20 @@ def purchase_email(name: str, items: list[dict], total_label: str) -> tuple[str,
         if many
         else "**Your copy is ready —** here's your one-time, non-editable download link. It's yours alone, so save it somewhere safe once you've claimed it:"
     )
+    if not numerology:
+        body = (
+            _letter(
+                f"Namaste, {first_name(name)}.",
+                "Thank you — your payment is received and your download is ready.",
+                ready,
+            )
+            + links
+            + _letter("Take your time with it. If anything doesn't open, just reply to this email and we'll sort it out.")
+            + session_html
+            + _signature()
+            + paid
+        )
+        return BOOK_SUBJECT, _layout("", body, support=False)
     body = (
         _letter(
             "Namaste, and welcome.",
