@@ -58,6 +58,8 @@ PRODUCTS: tuple[Product, ...] = (
             ("01 The Old Fart's Guide to Savings & Forex Trading.pdf", "02 The Old Fart's Guide to Trade Ruler - Companion Booklet.pdf")),
     Product("book-vedic-gods", "Old-Farts-Guide-to-Vedic-Gods.zip", "Vedic-Gods-Set-Old-Farts-Collection.zip",
             ("1 Books (PDF)/Old-Farts-Guide-to-Vedic-Gods-A5.pdf", "1 Books (PDF)/Old-Farts-Guide-to-Mantras-A5.pdf")),
+    Product("book-vedic-sages", "Old-Farts-Guide-to-Vedic-Sages.zip", "Vedic-Sages-Set-Old-Farts-Collection.zip",
+            ("1 Books (PDF)/Old-Farts-Guide-to-Vedic-Sages-A5.pdf", "1 Books (PDF)/Old-Farts-Guide-to-Mantras-A5.pdf")),
 )
 
 
@@ -115,6 +117,8 @@ def upload_file(client: httpx.Client, base: str, headers: dict[str, str], file_n
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--material", required=True, type=Path, help="folder holding the course/book zips")
+    ap.add_argument("--only", nargs="+", metavar="ITEM_ID", help="upload just these catalog ids (default: all)")
+    ap.add_argument("--migration-out", type=Path, default=MIGRATION_PATH, help="where to write the publishing SQL")
     ap.add_argument("--dry-run", action="store_true", help="build every file and report sizes, upload nothing")
     args = ap.parse_args(argv)
 
@@ -124,13 +128,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     headers = {"Authorization": f"Bearer {key}", "apikey": key}
 
+    products = [p for p in PRODUCTS if not args.only or p.item_id in args.only]
+    unknown = set(args.only or ()) - {p.item_id for p in PRODUCTS}
+    if unknown:
+        print(f"Unknown item id(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+        return 2
+
     uploaded: dict[str, str] = {}
     failed: list[str] = []
     total = 0
     with httpx.Client() as client:
         if not args.dry_run:
             ensure_bucket(client, base, headers)
-        for p in PRODUCTS:
+        for p in products:
             try:
                 source = args.material / p.source_zip
                 data = build_book_zip(source, p.members) if p.members else source.read_bytes()
@@ -148,8 +158,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nTotal: {total / 1_048_576:.1f} MB")
     if args.dry_run:
         return 0
-    MIGRATION_PATH.write_text(build_migration(uploaded, failed), encoding="utf-8")
-    print(f"Wrote {MIGRATION_PATH} ({len(uploaded)} published, {len(failed)} failed).")
+    args.migration_out.write_text(build_migration(uploaded, failed), encoding="utf-8")
+    print(f"Wrote {args.migration_out} ({len(uploaded)} published, {len(failed)} failed).")
     return 1 if failed else 0
 
 
