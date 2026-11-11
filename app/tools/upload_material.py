@@ -58,6 +58,9 @@ PRODUCTS: tuple[Product, ...] = (
             ("01 The Old Fart's Guide to Savings & Forex Trading.pdf", "02 The Old Fart's Guide to Trade Ruler - Companion Booklet.pdf")),
     Product("book-vedic-gods", "Old-Farts-Guide-to-Vedic-Gods.zip", "Vedic-Gods-Set-Old-Farts-Collection.zip",
             ("1 Books (PDF)/Old-Farts-Guide-to-Vedic-Gods-A5.pdf", "1 Books (PDF)/Old-Farts-Guide-to-Mantras-A5.pdf")),
+    Product("course-tarot", "Tarot-Learning-Package.zip", "Tarot-Learning-Package-Complete.zip",
+            ("1 Books (PDF)/Tarot-Course-Syllabus-A5.pdf", "1 Books (PDF)/Tarot-Student-Workbook-A5.pdf",
+             "1 Books (PDF)/Tarot-Question-Techniques-A5.pdf")),
     Product("book-vedic-sages", "Old-Farts-Guide-to-Vedic-Sages.zip", "Vedic-Sages-Set-Old-Farts-Collection.zip",
             ("1 Books (PDF)/Old-Farts-Guide-to-Vedic-Sages-A5.pdf", "1 Books (PDF)/Old-Farts-Guide-to-Mantras-A5.pdf")),
 )

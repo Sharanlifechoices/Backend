@@ -62,7 +62,7 @@ def test_every_product_maps_to_a_catalog_row_in_the_catalog_migrations():
     from pathlib import Path
 
     migrations = Path(__file__).resolve().parents[1] / "supabase" / "migrations"
-    sql = "".join((migrations / n).read_text(encoding="utf-8") for n in ("0008_courses_and_more_books.sql", "0010_vedic_sages.sql"))
+    sql = "".join((migrations / n).read_text(encoding="utf-8") for n in ("0008_courses_and_more_books.sql", "0010_vedic_sages.sql", "0012_prices_and_tarot.sql"))
     for p in um.PRODUCTS:
         assert f"('{p.item_id}'," in sql, p.item_id
 
@@ -78,3 +78,15 @@ def test_vedic_sages_is_a_book_in_migration_0010():
 def test_only_flag_limits_the_run_and_unknown_ids_are_rejected(tmp_path, capsys):
     assert um.main(["--material", str(tmp_path), "--only", "nope", "--dry-run"]) == 2
     assert "Unknown item id" in capsys.readouterr().err
+
+
+def test_final_prices_migration_covers_known_items_and_tarot_ships_three_books():
+    import re
+    from pathlib import Path
+
+    migrations = Path(__file__).resolve().parents[1] / "supabase" / "migrations"
+    known = "".join((migrations / n).read_text(encoding="utf-8") for n in ("0008_courses_and_more_books.sql", "0010_vedic_sages.sql", "0012_prices_and_tarot.sql"))
+    priced = re.findall(r"'((?:course|book)-[a-z0-9-]+)'", (migrations / "0012_prices_and_tarot.sql").read_text(encoding="utf-8"))
+    assert priced and all(f"('{i}'," in known for i in priced)
+    tarot = next(p for p in um.PRODUCTS if p.item_id == "course-tarot")
+    assert tarot.members and len(tarot.members) == 3
